@@ -14,7 +14,6 @@ import {
     getParentDomain,
     getCookie,
     getMobilePlatform,
-    getQueryVar,
 } from './modules/common';
 
 let instance = null;
@@ -71,6 +70,15 @@ class SDK {
             this.options = defaults;
         }
 
+        // Open the debug console when debugging is enabled.
+        try {
+            if (this.options.debug || localStorage.getItem('gd_debug')) {
+                this.openConsole();
+            }
+        } catch (error) {
+            console.log(error);
+        }
+
         // Set a version banner within the developer console.
         const version = PackageJSON.version;
         const banner = console.log(
@@ -83,6 +91,7 @@ class SDK {
         console.log.apply(console, banner);
         /* eslint-enable */
 
+
         // Get referrer domain data.
         const referrer = getParentUrl();
         const parentDomain = getParentDomain();
@@ -90,39 +99,11 @@ class SDK {
         // Get platform.
         const platform = getMobilePlatform();
 
-        try {
-            // Enable debugging if visiting through our developer admin.
-            if (parentDomain === 'developer.gamedistribution.com') {
-                localStorage.setItem('gd_debug', true);
-                localStorage.setItem('gd_midroll', '0');
-                const tag = 'https://pubads.g.doubleclick.net/gampad/' +
-                    'ads?sz=640x480&iu=/124319096/external/' +
-                    'single_ad_samples&ciu_szs=300x250&impl=' +
-                    's&gdfp_req=1&env=vp&output=vast' +
-                    '&unviewed_position_start=1&' +
-                    'cust_params=deployment%3Ddevsite' +
-                    '%26sample_ct%3Dlinear&correlator=';
-                localStorage.setItem('gd_tag', tag);
-            }
-            // Open the debug console when debugging is enabled.
-            if (this.options.debug || localStorage.getItem('gd_debug')) {
-                this.openConsole();
-            }
-        } catch (error) {
-            console.log(error);
-        }
+        // Call Google Analytics.
+        this._googleAnalytics();
 
-        // Add GDPR rulings for user tracking.
-        const gdprAnalytics = getQueryVar('gdpr-analytics');
-        const gdprFingerprint = getQueryVar('gdpr-fingerprint');
-        if (gdprAnalytics !== 'false') {
-            // Call Google Analytics.
-            this._googleAnalytics();
-            if (gdprFingerprint !== 'false') {
-                // Call Death Star.
-                this._deathStar();
-            }
-        }
+        // Call Death Star.
+        this._deathStar();
 
         // Record a game "play"-event in Tunnl.
         (new Image()).src = 'https://ana.tunnl.com/event' +
@@ -181,16 +162,6 @@ class SDK {
             // Do a request to flag the sdk as available within the catalog.
             // This flagging allows our developer to do a request to publish
             // this game, otherwise this option would remain unavailable.
-            // Todo: You can remove this first case once our new environments are live.
-            const expression = 'controlpanel/game/edit/' + this.options.gameId;
-            const regex = new RegExp(expression, 'i');
-            const t = getParentUrl();
-            if (t.match(regex)) {
-                (new Image()).src =
-                    'https://game.api.gamedistribution.com/game/updateapi/' +
-                    this.options.gameId;
-            }
-            // New update for new developer admin.
             if (parentDomain === 'developer.gamedistribution.com') {
                 (new Image()).src =
                     'https://game.api.gamedistribution.com/game/hasapi/' +
